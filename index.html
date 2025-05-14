@@ -1,5 +1,99 @@
 <script>
-    function openProxyPage(url) {
+    "use strict";
+
+let inspectEnabled = false;
+
+/**
+ * @type {HTMLFormElement}
+ */
+const form = document.getElementById("uv-form");
+/**
+ * @type {HTMLInputElement}
+ */
+const address = document.getElementById("uv-address");
+/**
+ * @type {HTMLInputElement}
+ */
+const searchEngine = document.getElementById("uv-search-engine");
+/**
+ * @type {HTMLParagraphElement}
+ */
+const error = document.getElementById("uv-error");
+/**
+ * @type {HTMLPreElement}
+ */
+const errorCode = document.getElementById("uv-error-code");
+
+class UrlInfoHelper {
+  constructor() { }
+
+  extractFavicon(url) {
+    try {
+      return `https://www.google.com/s2/favicons?domain=${url}&sz=24`;
+    } catch (e) {
+      console.log('Error fetching favicon:', e);
+      return '';
+    }
+  }
+}
+
+const helper = new UrlInfoHelper();
+
+function getProxyUrl(url) {
+  const proxyType = localStorage.getItem('proxy-backend');
+
+  if (proxyType === "dynamic") {
+    return "/service/dynamic/" + __uv$config.encodeUrl(url);
+  } else {
+    return "/service/uv/" + __uv$config.encodeUrl(url);
+  }
+  
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  try {
+    await registerSW();
+  } catch (err) {
+    error.textContent = "Failed to register service worker.";
+    errorCode.textContent = err.toString();
+    throw err;
+  }
+
+  const url = search(address.value, searchEngine.value);
+  openProxyPage(url);
+});
+
+function inspect() {
+  const targetIframe = document.querySelector('.current-game-embed');
+  console.log(targetIframe);
+
+  if (targetIframe) {
+    const iframeDoc = targetIframe.contentDocument || targetIframe.contentWindow.document;
+
+    if (inspectEnabled === false) {
+      const erudaScript = document.createElement('script');
+      erudaScript.src = "//cdn.jsdelivr.net/npm/eruda";
+      erudaScript.onload = function () {
+        const initializeScript = document.createElement('script');
+        initializeScript.innerHTML = "eruda.init(); eruda.show();";
+        iframeDoc.head.appendChild(initializeScript);
+      };
+      iframeDoc.head.appendChild(erudaScript);
+      console.log('Appended Eruda Script');
+    } else {
+      const erudaContainer = iframeDoc.getElementById('eruda');
+      if (erudaContainer) {
+        erudaContainer.remove();
+      }
+    }
+
+    inspectEnabled = !inspectEnabled;
+  }
+}
+
+function openProxyPage(url) {
   registerSW()
     .then(() => {
       const proxyTabId = address.value.replace(/\s+/g, '-').toLowerCase();
@@ -60,6 +154,8 @@
 
       openPage(`${proxyTabId}-embed`);
     });
+}
+
 </script>
 
 <button onclick="openProxyPage('https://google.com/')" class="shortcut" title="shortcut"></button>
